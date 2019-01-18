@@ -6,13 +6,25 @@
     "test": "jest",
     "test:watch": "npm run test -- --watchAll",
     "build": "babel src --out-dir dist",
-    "start": "node dist/index.js"
+    "start": "node dist/index"
   },
   "devDependencies": {
     "@babel/cli": "^7.2.3",
     "@babel/core": "^7.2.2",
     "@babel/node": "^7.2.2",
     "@babel/preset-env": "^7.2.3",
-    "jest": "^23.6.0"
+    "babel-core": "^7.0.0-bridge.0",
+    "babel-jest": "^23.6.0",
+    "jest": "^23.6.0",
+    "supertest": "^3.4.1"
+  },
+  "dependencies": {
+    "express": "^4.16.4",
+    "express-cache-controller": "^1.1.0",
+    "express-request-id": "^1.4.1",
+    "get-port": "^4.1.0",
+    "helmet": "^3.15.0",
+    "response-time": "^2.3.2",
+    "vary": "^1.1.2"
   }
 }
