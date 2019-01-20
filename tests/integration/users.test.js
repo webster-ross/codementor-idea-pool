@@ -1,5 +1,4 @@
 import request from 'supertest'
-import port from 'get-port'
 import Redis from '../../src/redis'
 import pg from '../../src/postgres'
 import titleCase from 'title-case'

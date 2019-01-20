@@ -1,5 +1,4 @@
 import request from 'supertest'
-import port from 'get-port'
 import Server from '../../src/server'
 import configs from '../../src/configs'
 import {verifyHeaders} from '../utils'

@@ -1,5 +1,4 @@
 import request from 'supertest'
-import port from 'get-port'
 import md5 from 'md5'
 import pg from '../../src/postgres'
 import Server from '../../src/server'

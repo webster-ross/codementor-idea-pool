@@ -29,7 +29,6 @@ const validators = [
 
 // handle post request => Sign Up
 router.post('/', validators, async (req, res, next) => {
-  // create user
   const {email, name, password} = req.body
 
   // validate input
