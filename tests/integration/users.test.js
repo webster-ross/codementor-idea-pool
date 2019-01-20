@@ -1,20 +1,16 @@
 import request from 'supertest'
 import port from 'get-port'
-import Redis from '../src/redis'
-import pg from '../src/postgres'
+import Redis from '../../src/redis'
+import pg from '../../src/postgres'
 import titleCase from 'title-case'
-import createServer from '../src/server'
-import configs from '../src/configs'
-import {verifyHeader} from './utils'
+import Server from '../../src/server'
+import configs from '../../src/configs'
+import {verifyHeaders} from '../utils'
 
-// start a server instance with a dynamic port
-const server = createServer(async () => await port())
+const server = Server()
 
 beforeAll(() => pg.connect())
-afterAll(() => {
-  pg.end()
-  server.close()
-})
+//afterAll(() => pg.end())
 
 describe('POST /users', () => {
   beforeEach(async () => {
@@ -25,7 +21,7 @@ describe('POST /users', () => {
     const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
     const response = await request(server).post('/users').send(user)
     expect(response.status).toBe(201)
-    verifyHeader(response)
+    verifyHeaders(response)
     expect(response.body.jwt).toBeTruthy()
     expect(response.body.refresh_token).toBeTruthy()
   })
@@ -59,44 +55,71 @@ describe('POST /users', () => {
       let user = {name: 'Tester', password: 'Test1234'}
       let response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
 
       user = {email: 'email@test.com', password: 'Test1234'}
       response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
 
       user = {email: 'email@test.com', name: 'Tester'}
       response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
     })
 
     it('handles invalid email', async () => {
       let user = {email: 'em@il@test.com', name: 'Tester', password: 'Test1234'}
       let response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
 
       user = {email: ' ', name: 'Tester', password: 'Test1234'}
       response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
     })
 
     it('handles invalid name', async () => {
       let user = {email: 'email@test.com', name: ' ', password: 'Test1234'}
       let response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
 
       user = {email: 'email@test.com', name: 'T', password: 'Test1234'}
       response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
     })
 
     it('handles invalid password', async () => {
       let user = {email: 'email@test.com', name: 'Tester', password: ' '}
       let response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
 
       user = {email: 'email@test.com', name: 'Tester', password: 'test'}
       response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
     })
 
     it('prevents duplicate emails', async () => {
@@ -104,6 +127,9 @@ describe('POST /users', () => {
       await request(server).post('/users').send(user)
       let response = await request(server).post('/users').send(user)
       expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
     })
   })
 })

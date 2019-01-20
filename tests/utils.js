@@ -1,4 +1,4 @@
-export function verifyHeader(response) {
+export function verifyHeaders(response) {
   expect(response.headers['x-frame-options']).toBe('SAMEORIGIN')
   expect(response.headers['x-xss-protection']).toBe('1; mode=block')
   expect(response.headers['x-content-type-options']).toBe('nosniff')

@@ -1,5 +1,5 @@
-import server from './server'
+import createServer from './server'
 import configs from './configs'
 
 // start server
-server(configs.PORT)
+createServer().listen(configs.PORT)

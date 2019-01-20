@@ -35,7 +35,7 @@ router.post('/', validators, async (req, res, next) => {
   // validate input
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
-    return res.status(400).send({errors: errors.array()})
+    return res.status(400).send({msg: 'Bad Request', errors: errors.array()})
   }
 
   // hash password
