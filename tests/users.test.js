@@ -1,7 +1,7 @@
 import request from 'supertest'
 import port from 'get-port'
-import redis from 'async-redis'
-import {Client} from 'pg'
+import Redis from '../src/redis'
+import pg from '../src/postgres'
 import titleCase from 'title-case'
 import createServer from '../src/server'
 import configs from '../src/configs'
@@ -9,7 +9,6 @@ import {verifyHeader} from './utils'
 
 // start a server instance with a dynamic port
 const server = createServer(async () => await port())
-const pg = new Client({connectionString: configs.PG_URI})
 
 beforeAll(() => pg.connect())
 afterAll(() => {
@@ -32,7 +31,7 @@ describe('POST /users', () => {
   })
 
   it('stores a refresh token', async () => {
-    const redisClient = redis.createClient(configs.REDIS_URL)
+    const redisClient = Redis()
     await redisClient.flushall()
     const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
     const response = await request(server).post('/users').send(user)

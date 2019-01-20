@@ -1,20 +1,18 @@
 import {Router} from 'express'
-import {Pool} from 'pg'
 import {check, validationResult} from 'express-validator/check'
 import {sanitizeBody} from 'express-validator/filter'
 import titleCase from 'title-case'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import randToken from 'rand-token'
-import redis from 'async-redis'
+import pg from '../postgres'
+import Redis from '../redis'
 import configs from '../configs'
 
-// connect to redis
 const router = Router()
-const redisClient = redis.createClient(configs.REDIS_URL)
 
-// connect to postgres (use only one pool)
-const pg = new Pool({connectionString: configs.PG_URI})
+// connect to redis
+const redisClient = Redis()
 
 // initialize input sanitization & validation
 const validators = [

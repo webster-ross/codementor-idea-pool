@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "nodemon --exec babel-node src/index",
-    "test": "knex migrate:latest && jest",
+    "test": "npm run migrate:latest && jest",
     "test:watch": "npm run test -- --watchAll",
-    "knex": "knex",
-    "migrate:latest": "knex migrate:latest",
-    "migrate:rollback": "knex migrate:rollback",
-    "build": "knex migrate:latest && babel src --out-dir dist",
+    "knex": "babel-node node_modules/.bin/knex",
+    "migrate:latest": "npm run knex -- migrate:latest",
+    "migrate:rollback": "npm run knex -- migrate:rollback",
+    "build": "npm run migrate:latest && babel src --out-dir dist",
     "start": "node dist/index"
   },
   "devDependencies": {
