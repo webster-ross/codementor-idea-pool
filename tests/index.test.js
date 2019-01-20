@@ -1,5 +1,5 @@
 import request from 'supertest'
-import port from 'get-port';
+import port from 'get-port'
 import createServer from '../src/server'
 import configs from '../src/configs'
 import {verifyHeader} from './utils'
@@ -11,7 +11,7 @@ afterEach(() => server.close())
 
 describe('GET /', () => {
   it('returns valid response', async () => {
-    const response = await request(server).get('/'')
+    const response = await request(server).get('/')
     expect(response.status).toBe(200)
     verifyHeader(response)
     expect(response.body).toEqual({
