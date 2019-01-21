@@ -7,6 +7,7 @@ import responseTime from 'response-time'
 import users from './routes/users'
 import me from './routes/me'
 import tokens from './routes/tokens'
+import ideas from './routes/ideas'
 
 export default () => {
   const app = express()
@@ -30,6 +31,7 @@ export default () => {
   app.use('/users', users)
   app.use('/me', me)
   app.use('/access-tokens', tokens)
+  app.use('/ideas', ideas)
 
   // default error handler
   app.use((err, req, res, next) => {

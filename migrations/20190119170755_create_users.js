@@ -1,4 +1,4 @@
-exports.up = async (knex) => {
+exports.up = async knex => {
   await knex.schema.createTable('users', table => {
     table.increments('id').unsigned().primary()
     table.text('email').notNull().unique()
@@ -7,6 +7,6 @@ exports.up = async (knex) => {
   })
 }
 
-exports.down = async (knex) => {
+exports.down = async knex => {
   await knex.schema.dropTableIfExists('users')
 }
