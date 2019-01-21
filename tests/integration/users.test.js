@@ -36,6 +36,15 @@ describe('POST /users', () => {
     redisClient.flushall()
   })
 
+  it('returns valid jwt', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+    response = await request(server).get('/me').set('X-Access-Token', jwt)
+    expect(response.body.email).toBe(user.email)
+    expect(response.body.name).toBe(user.name)
+  })
+
   it('creates a new user', async () => {
     const user = {email: ' Email@est.com ', name: ' tester tester ', password: 'Test1234'}
     const response = await request(server).post('/users').send(user)
