@@ -158,4 +158,104 @@ describe('POST /access-tokens/refresh', () => {
       expect(response.body).toEqual({msg: 'Unauthorized'})
     })
   })
+
+  describe('DELETE /access-tokens', () => {
+    beforeEach(async () => {
+      await pg.query('truncate users restart identity cascade')
+    })
+
+    it('returns valid response', async () => {
+      const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+      let response = await request(server).post('/users').send(user)
+      const {jwt, refresh_token} = response.body
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .set('X-Access-Token', jwt)
+        .send({refresh_token: refresh_token})
+
+      expect(response.status).toBe(204)
+      verifyHeaders(response, ['content-type', 'content-length'])
+      expect(response.body).toEqual({})
+    })
+
+    it('deletes the refresh token', async () => {
+      const redisClient = Redis()
+      await redisClient.flushall()
+
+      const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+      let response = await request(server).post('/users').send(user)
+      const {jwt, refresh_token} = response.body
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .set('X-Access-Token', jwt)
+        .send({refresh_token: refresh_token})
+
+      const value = await redisClient.get(refresh_token)
+      expect(value).toBeNull()
+      redisClient.flushall()
+    })
+
+    it('handles invalid tokens', async () => {
+      const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+      let response = await request(server).post('/users').send(user)
+      const {jwt} = response.body
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .set('X-Access-Token', '')
+      expect(response.status).toBe(401)
+      verifyHeaders(response)
+      expect(response.body).toEqual({msg: 'Unauthorized'})
+
+      response = await request(server)
+        .delete('/access-tokens')
+      expect(response.status).toBe(401)
+      verifyHeaders(response)
+      expect(response.body).toEqual({msg: 'Unauthorized'})
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .set('X-Access-Token', jwt.slice(0, -1))
+      expect(response.status).toBe(401)
+      verifyHeaders(response)
+      expect(response.body).toEqual({msg: 'Unauthorized'})
+    })
+
+    it('handles invalid user input', async () => {
+      const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+      let response = await request(server).post('/users').send(user)
+      const {jwt} = response.body
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .set('X-Access-Token', jwt)
+
+      expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .send({refresh_token: ''})
+        .set('X-Access-Token', jwt)
+
+      expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
+
+      response = await request(server)
+        .delete('/access-tokens')
+        .send({refresh_token: 'token'})
+        .set('X-Access-Token', jwt)
+
+      expect(response.status).toBe(400)
+      verifyHeaders(response)
+      expect(response.body.msg).toBe('Bad Request')
+      expect(response.body.errors).toBeTruthy()
+    })
+  })
 })

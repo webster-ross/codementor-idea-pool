@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt'
 import randToken from 'rand-token'
 import {check, validationResult} from 'express-validator/check'
 import configs from '../configs'
+import {auth} from '../middleware'
 import Redis from '../redis'
 import pg from '../postgres'
 
@@ -63,6 +64,26 @@ router.post('/', async (req, res, next) => {
       res.status(201).send({jwt: token, refresh_token: refreshToken})
     }
     else res.status(401).send({msg: 'Unauthorized'})
+  }
+  catch(e) { next(e) }
+})
+
+// handle delete request => User Logout
+router.delete('/', auth, validators, async (req, res, next) => {
+  const {refresh_token} = req.body
+
+  // validate input
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).send({msg: 'Bad Request', errors: errors.array()})
+  }
+
+  // delete token
+  try {
+    const user = await redisClient.get(refresh_token)
+    if (user != req.user) return res.status(401).send({msg: 'Unauthorized'})
+    await redisClient.del(refresh_token)
+    res.sendStatus(204)
   }
   catch(e) { next(e) }
 })
