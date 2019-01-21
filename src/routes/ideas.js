@@ -1,4 +1,5 @@
 import {Router} from 'express'
+import validator from 'validator'
 import {check, validationResult} from 'express-validator/check'
 import {sanitizeBody} from 'express-validator/filter'
 import pg from '../postgres'
@@ -38,6 +39,22 @@ router.post('/', validators, async (req, res, next) => {
     delete idea.user_id
 
     res.status(201).send(idea)
+  }
+  catch(e) { next(e) }
+})
+
+// handle delete request => Delete Idea
+router.delete('/:idea', validators, async (req, res, next) => {
+  const {idea} = req.params
+
+  if (!validator.isUUID(idea)) return next()
+
+  try {
+    // delete idea from db
+    const {rows} = await pg.query(`delete from ideas where id = $1 and user_id = $2 returning *`,
+                    [req.params.idea, req.user])
+    if (rows.length < 1) next()
+    else res.sendStatus(204)
   }
   catch(e) { next(e) }
 })

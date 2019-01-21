@@ -240,3 +240,147 @@ describe('POST /ideas', () => {
     expect(response.body.errors).toBeTruthy()
   })
 })
+
+describe('DELETE /ideas/:id', () => {
+  beforeEach(async () => {
+    await pg.query('truncate users restart identity cascade')
+    await pg.query('truncate ideas restart identity cascade')
+  })
+  
+  it('returns valid response', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    response = await request(server)
+      .delete(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(204)
+    verifyHeaders(response, ['content-type', 'content-length'])
+    expect(response.body).toEqual({})
+  })
+
+  it('deletes a idea', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    response = await request(server)
+      .delete(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt)
+
+    const {rows} = await pg.query(`select * from ideas where id = '${idea.id}'`)
+    expect(rows.length).toBe(0)
+  })
+
+  it('handles invalid tokens', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    response = await request(server)
+      .delete(`/ideas/${idea.id}`)
+      .set('X-Access-Token', '')
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+
+    response = await request(server).delete(`/ideas/${idea.id}`)
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+
+    response = await request(server)
+      .delete(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt.slice(0, -1))
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+  })
+
+  it('handles invalid idea id params', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    response = await request(server)
+      .delete(`/ideas`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+
+    response = await request(server)
+      .delete(`/ideas/`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+
+    response = await request(server)
+      .delete(`/ideas/badid`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+  })
+
+  it('prevents user deleting other user\'s idea', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    let {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    user.email = 'newemail@test.com'
+    response = await request(server).post('/users').send(user)
+    let {jwt: jwt2} = response.body
+
+    response = await request(server)
+      .delete(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt2)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+  })
+})

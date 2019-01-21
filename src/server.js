@@ -33,6 +33,11 @@ export default () => {
   app.use('/access-tokens', tokens)
   app.use('/ideas', ideas)
 
+  // default not found handler
+  app.use((req, res, next) => {
+    res.status(404).send({msg: 'Not Found'})
+  })
+  
   // default error handler
   app.use((err, req, res, next) => {
     console.error(err)
