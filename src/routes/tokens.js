@@ -1,5 +1,7 @@
 import {Router} from 'express'
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
+import randToken from 'rand-token'
 import {check, validationResult} from 'express-validator/check'
 import configs from '../configs'
 import Redis from '../redis'
@@ -34,6 +36,33 @@ router.post('/refresh', validators, async (req, res, next) => {
     const userId = await redisClient.get(refreshToken)
     const token = jwt.sign({user: userId}, configs.JWT_SECRET, {expiresIn: '10m'})
     res.status(200).send({jwt: token})
+  }
+  catch(e) { next(e) }
+})
+
+// handle post request => User Login
+router.post('/', async (req, res, next) => {
+  const {email = '', password = ''} = req.body
+
+  // verify email and password
+  try {
+    const {rows} = await pg.query(`select * from users where email = $1`, [email.trim()])
+    const user = rows[0] || {}
+
+    // check password
+    const match = await bcrypt.compare(password, user.password || '')
+
+    if (match) {
+      // create tokens
+      const token = jwt.sign({user: user.id}, configs.JWT_SECRET, {expiresIn: '10m'})
+      const refreshToken = randToken.generate(64)
+
+      // store refresh token to redis that expires in a week
+      await redisClient.set(refreshToken, user.id, 'EX', 604800)
+
+      res.status(201).send({jwt: token, refresh_token: refreshToken})
+    }
+    else res.status(401).send({msg: 'Unauthorized'})
   }
   catch(e) { next(e) }
 })
