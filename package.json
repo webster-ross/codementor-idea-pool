@@ -39,7 +39,6 @@
     "pg": "^7.8.0",
     "rand-token": "^0.4.0",
     "response-time": "^2.3.2",
-    "title-case": "^2.1.1",
     "validator": "^10.11.0",
     "vary": "^1.1.2"
   }

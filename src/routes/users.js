@@ -1,7 +1,6 @@
 import {Router} from 'express'
 import {check, validationResult} from 'express-validator/check'
 import {sanitizeBody} from 'express-validator/filter'
-import titleCase from 'title-case'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import randToken from 'rand-token'
@@ -17,7 +16,7 @@ const redisClient = Redis()
 // initialize input sanitization & validation
 const validators = [
   sanitizeBody('email').trim().normalizeEmail({all_lowercase: true}),
-  sanitizeBody('name').trim().customSanitizer(value => titleCase(value)),
+  sanitizeBody('name').trim(),
   sanitizeBody('password').trim(),
   check('email').isEmail().custom(async value => {
     const {rows} = await pg.query(`select * from users where email = $1`, [value])
