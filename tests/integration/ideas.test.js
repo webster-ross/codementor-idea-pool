@@ -409,6 +409,317 @@ describe('POST /ideas', () => {
   })
 })
 
+describe('PUT /ideas/:id', () => {
+  beforeEach(async () => {
+    await pg.query('truncate users restart identity cascade')
+    await pg.query('truncate ideas restart identity cascade')
+  })
+
+  it('returns valid response', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    let {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 2, confidence: 3})
+
+    const idea = response.body
+    const updatedIdea = {content: 'something', impact: 7, ease: 8, confidence: 9}
+
+    response = await request(server)
+      .put(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt)
+      .send(updatedIdea)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+
+    expect(response.body.id).toBeTruthy()
+    expect(response.body.content).toBe(updatedIdea.content.trim())
+    expect(response.body.impact).toBe(updatedIdea.impact)
+    expect(response.body.ease).toBe(updatedIdea.ease)
+    expect(response.body.confidence).toBe(updatedIdea.confidence)
+    expect(response.body.created_at).toBeTruthy()
+
+    let averageScore = (updatedIdea.impact + updatedIdea.ease + updatedIdea.confidence) / 3.0
+    averageScore = parseFloat(averageScore.toFixed(1))
+    expect(response.body.average_score).toBe(averageScore)
+  })
+
+  it('updates an existing idea', async () => {
+    const redisClient = Redis()
+    await redisClient.flushall()
+
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    let {jwt, refresh_token} = response.body
+    const userId = await redisClient.get(refresh_token)
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 2, confidence: 3})
+
+    const idea = response.body
+    const updatedIdea = {content: 'something', impact: 7, ease: 8, confidence: 9}
+
+    response = await request(server)
+      .put(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt)
+      .send(updatedIdea)
+
+    const {rows} = await pg.query(`select * from ideas where id = '${idea.id}'`)
+    const {content, impact, ease, confidence, user_id, created_at} = rows[0]
+
+    expect(content).toBe(updatedIdea.content.trim())
+    expect(impact).toBe(updatedIdea.impact)
+    expect(ease).toBe(updatedIdea.ease)
+    expect(confidence).toBe(updatedIdea.confidence)
+    expect(user_id).toBe(parseInt(userId))
+    expect(created_at).toBeTruthy()
+
+    await redisClient.flushall()
+  })
+
+  it('prevents users updating other user\'s idea', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    let {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    user.email = 'newemail@test.com'
+    response = await request(server).post('/users').send(user)
+    let {jwt: jwt2} = response.body
+
+    response = await request(server)
+      .put(`/ideas/${idea.id}`)
+      .set('X-Access-Token', jwt2)
+      .send({content: 'something', impact: 9, ease: 9, confidence: 9})
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+  })
+
+  it('handles invalid idea id params', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .post('/ideas')
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 1})
+
+    const idea = response.body
+
+    response = await request(server)
+      .put(`/ideas`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+
+    response = await request(server)
+      .put(`/ideas/`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+
+    response = await request(server)
+      .put(`/ideas/badid`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(404)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Not Found'})
+  })
+
+  it('handles invalid user input', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    const idea = {content: ' some idea ', impact: 1, ease: 2, confidence: 3}
+    response = await request(server).post('/ideas').set('X-Access-Token', jwt).send(idea)
+
+    const newIdea = response.body
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 5, ease: 8})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 5, confidence: 10})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', ease: 8, confidence: 10})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({impact: 5, ease: 8, confidence: 10})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: ' ', impact: 5, ease: 8, confidence: 10})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({
+        content: loremIpsum({count: 100, units: 'words'}),
+        impact: 5,
+        ease: 8,
+        confidence: 10
+      })
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: -1, ease: 8, confidence: 10})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: -8, confidence: 10})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 0})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 11, ease: 8, confidence: 3})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 18, confidence: 3})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+
+    response = await request(server)
+      .put(`/ideas/${newIdea.id}`)
+      .set('X-Access-Token', jwt)
+      .send({content: 'something', impact: 1, ease: 8, confidence: 13})
+
+    expect(response.status).toBe(400)
+    verifyHeaders(response)
+    expect(response.body.msg).toBe('Bad Request')
+    expect(response.body.errors).toBeTruthy()
+  })
+
+  it('handles invalid tokens', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .put('/ideas/ideaid')
+      .set('X-Access-Token', '')
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+
+    response = await request(server)
+      .put('/ideas/ideaid')
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+
+    response = await request(server)
+      .put('/ideas/ideaid')
+      .set('X-Access-Token', jwt.slice(0, -1))
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+  })
+})
+
 describe('DELETE /ideas/:id', () => {
   beforeEach(async () => {
     await pg.query('truncate users restart identity cascade')
@@ -527,7 +838,7 @@ describe('DELETE /ideas/:id', () => {
     expect(response.body).toEqual({msg: 'Not Found'})
   })
 
-  it('prevents user deleting other user\'s idea', async () => {
+  it('prevents users deleting other user\'s idea', async () => {
     const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
     let response = await request(server).post('/users').send(user)
     let {jwt} = response.body

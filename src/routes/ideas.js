@@ -21,7 +21,7 @@ const validators = [
 router.get('/', async (req, res, next) => {
   let offsetSQL = ''
   let {page} = req.query
-  
+
   page = parseInt(page)
   if (page > 0) offsetSQL = `limit 10 offset ${(page - 1) * 10}`
 
@@ -59,10 +59,38 @@ router.post('/', validators, async (req, res, next) => {
   catch(e) { next(e) }
 })
 
+// handle put request => Update Idea
+router.put('/:idea', validators, async (req, res, next) => {
+  // verify idea param is valid
+  const {idea} = req.params
+  if (!validator.isUUID(idea)) return next()
+
+  const {content, impact, ease, confidence} = req.body
+
+  // validate input
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) {
+    return res.status(400).send({msg: 'Bad Request', errors: errors.array()})
+  }
+
+  try {
+    // update id in db
+    const {rows} = await pg.query(`update ideas set (content, impact, ease, confidence) = ($1, $2, $3, $4)
+                                   where user_id = $5
+                                   returning *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score`,
+                                   [content, impact, ease, confidence, req.user])
+    if (rows.length < 1) next()
+
+    const idea = rows[0]
+    res.status(200).send(idea)
+  }
+  catch(e) { next(e) }
+})
+
 // handle delete request => Delete Idea
 router.delete('/:idea', validators, async (req, res, next) => {
+  // verify idea param is valid
   const {idea} = req.params
-
   if (!validator.isUUID(idea)) return next()
 
   try {

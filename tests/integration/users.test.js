@@ -113,7 +113,7 @@ describe('POST /users', () => {
       expect(response.body.msg).toBe('Bad Request')
       expect(response.body.errors).toBeTruthy()
     })
-
+    
     it('handles invalid password', async () => {
       let user = {email: 'email@test.com', name: 'Tester', password: ' '}
       let response = await request(server).post('/users').send(user)
