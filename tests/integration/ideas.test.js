@@ -136,7 +136,7 @@ describe('GET /ideas', () => {
 
     expect(response.status).toBe(200)
     verifyHeaders(response)
-    expect(response.body.length).toBe(23)
+    expect(response.body.length).toBe(10)
 
     response = await request(server)
       .get('/ideas?page=??')
@@ -144,7 +144,7 @@ describe('GET /ideas', () => {
 
     expect(response.status).toBe(200)
     verifyHeaders(response)
-    expect(response.body.length).toBe(23)
+    expect(response.body.length).toBe(10)
   })
 
   it('handles invalid tokens', async () => {

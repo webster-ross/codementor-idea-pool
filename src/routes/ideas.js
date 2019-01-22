@@ -23,14 +23,14 @@ router.get('/', async (req, res, next) => {
   let {page} = req.query
 
   page = parseInt(page)
-  if (page > 0) offsetSQL = `limit 10 offset ${(page - 1) * 10}`
+  if (page > 0) offsetSQL = `offset ${(page - 1) * 10}`
 
   try {
     // get ideas from db
     const {rows} = await pg.query(`select *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score
                                    from ideas where user_id = $1
                                    order by average_score desc
-                                   ${offsetSQL}`,
+                                   limit 10 ${offsetSQL}`,
                                    [req.user])
     res.status(200).send(rows)
   }
