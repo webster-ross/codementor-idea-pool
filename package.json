@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "async-redis": "^1.1.5",
+    "babel-polyfill": "^6.26.0",
     "bcrypt": "^3.0.3",
     "body-parser": "^1.18.3",
     "express": "^4.16.4",
