@@ -17,6 +17,26 @@ const validators = [
   check('confidence').isInt({min: 1, max: 10})
 ]
 
+// handle get request => Get Ideas
+router.get('/', async (req, res, next) => {
+  let offsetSQL = ''
+  let {page} = req.query
+  
+  page = parseInt(page)
+  if (page > 0) offsetSQL = `limit 10 offset ${(page - 1) * 10}`
+
+  try {
+    // get ideas from db
+    const {rows} = await pg.query(`select *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score
+                                   from ideas where user_id = $1
+                                   order by average_score desc
+                                   ${offsetSQL}`,
+                                   [req.user])
+    res.status(200).send(rows)
+  }
+  catch(e) { next(e) }
+})
+
 // handle post request => Create Idea
 router.post('/', validators, async (req, res, next) => {
   const {content, impact, ease, confidence} = req.body
@@ -30,14 +50,10 @@ router.post('/', validators, async (req, res, next) => {
   try {
     // add new idea to db
     const {rows} = await pg.query(`insert into ideas (content, impact, ease, confidence, user_id)
-                                   values ($1, $2, $3, $4, $5) returning *`,
+                                   values ($1, $2, $3, $4, $5)
+                                   returning *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score`,
                                    [content, impact, ease, confidence, req.user])
     const idea = rows[0]
-    const averageScore = (idea.impact + idea.ease + idea.confidence) / 3.0
-    idea.average_score = parseFloat(averageScore.toFixed(1))
-    idea.created_at = parseFloat((new Date(idea.created_at).getTime() / 1000).toFixed(0))
-    delete idea.user_id
-
     res.status(201).send(idea)
   }
   catch(e) { next(e) }

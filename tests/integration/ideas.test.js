@@ -10,6 +10,174 @@ const server = Server()
 beforeAll(() => pg.connect())
 //afterAll(() => pg.end())
 
+describe('GET /ideas', () => {
+  beforeEach(async () => {
+    await pg.query('truncate users restart identity cascade')
+    await pg.query('truncate ideas restart identity cascade')
+  })
+
+  it('returns valid response', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    const count = 3
+    for (let i = 0; i < count; i++) {
+      const idea = {content: ' some idea ', impact: Math.min(1 + i, 10), ease: 8, confidence: 10}
+      response = await request(server)
+        .post('/ideas')
+        .set('X-Access-Token', jwt)
+        .send(idea)
+    }
+
+    response = await request(server)
+      .get('/ideas')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(count)
+
+    const idea = response.body[0]
+    expect(idea.id).toBeTruthy()
+    expect(idea.content).toBe('some idea')
+    expect(idea.impact).toBe(3)
+    expect(idea.ease).toBe(8)
+    expect(idea.confidence).toBe(10)
+    expect(idea.created_at).toBeTruthy()
+    expect(idea.average_score).toBe(7)
+
+    let isOrdered = true
+    const ideas = response.body
+    ideas.forEach((idea, index) => {
+      if (index < ideas.length - 1) {
+        isOrdered = isOrdered && (idea.average_score >= ideas[index + 1].average_score)
+      }
+    })
+    expect(isOrdered).toBe(true)
+  })
+
+  it('only returns ideas created by the authenticated user', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    const count = 3
+    for (let i = 0; i < count; i++) {
+      const idea = {content: ' some idea ', impact: Math.min(1 + i, 10), ease: 8, confidence: 10}
+      response = await request(server)
+        .post('/ideas')
+        .set('X-Access-Token', jwt)
+        .send(idea)
+    }
+
+    user.email = 'new@test.com'
+    response = await request(server).post('/users').send(user)
+    const {jwt: jwt2} = response.body
+
+    response = await request(server)
+      .get('/ideas')
+      .set('X-Access-Token', jwt2)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body).toEqual([])
+  })
+
+  it('handles paging', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    const count = 23
+    for (let i = 0; i < count; i++) {
+      const idea = {content: ' some idea ', impact: 6, ease: 8, confidence: 10}
+      response = await request(server)
+        .post('/ideas')
+        .set('X-Access-Token', jwt)
+        .send(idea)
+    }
+
+    response = await request(server)
+      .get('/ideas?page=1')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(10)
+
+    response = await request(server)
+      .get('/ideas?page=2')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(10)
+
+    response = await request(server)
+      .get('/ideas?page=3')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(3)
+
+    response = await request(server)
+      .get('/ideas?page=4')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(0)
+
+    response = await request(server)
+      .get('/ideas?page=0')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(23)
+
+    response = await request(server)
+      .get('/ideas?page=??')
+      .set('X-Access-Token', jwt)
+
+    expect(response.status).toBe(200)
+    verifyHeaders(response)
+    expect(response.body.length).toBe(23)
+  })
+
+  it('handles invalid tokens', async () => {
+    const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
+    let response = await request(server).post('/users').send(user)
+    const {jwt} = response.body
+
+    response = await request(server)
+      .get('/ideas')
+      .set('X-Access-Token', '')
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+
+    response = await request(server)
+      .get('/ideas')
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+
+    response = await request(server)
+      .get('/ideas')
+      .set('X-Access-Token', jwt.slice(0, -1))
+
+    expect(response.status).toBe(401)
+    verifyHeaders(response)
+    expect(response.body).toEqual({msg: 'Unauthorized'})
+  })
+
+})
+
 describe('POST /ideas', () => {
   beforeEach(async () => {
     await pg.query('truncate users restart identity cascade')
@@ -246,7 +414,7 @@ describe('DELETE /ideas/:id', () => {
     await pg.query('truncate users restart identity cascade')
     await pg.query('truncate ideas restart identity cascade')
   })
-  
+
   it('returns valid response', async () => {
     const user = {email: 'email@test.com', name: 'Tester', password: 'Test1234'}
     let response = await request(server).post('/users').send(user)
