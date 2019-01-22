@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "nodemon --exec babel-node src/index",
-    "test": "npm run migrate:latest && jest integration --runInBand",
+    "test": "NODE_ENV=test npm run migrate:latest && jest integration --runInBand",
     "test:watch": "npm run test -- --watchAll",
     "knex": "babel-node node_modules/.bin/knex",
     "migrate:latest": "npm run knex -- migrate:latest",

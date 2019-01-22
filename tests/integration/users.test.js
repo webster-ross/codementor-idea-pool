@@ -1,7 +1,6 @@
 import request from 'supertest'
 import Redis from '../../src/redis'
 import pg from '../../src/postgres'
-import titleCase from 'title-case'
 import Server from '../../src/server'
 import configs from '../../src/configs'
 import {verifyHeaders} from '../utils'
@@ -51,7 +50,7 @@ describe('POST /users', () => {
     const {rows} = await pg.query(`select * from users where email = '${user.email.toLowerCase().trim()}'`)
     const {id, email, name, password} = rows[0]
     expect(email).toBe(user.email.toLowerCase().trim())
-    expect(name).toBe(titleCase(user.name).trim())
+    expect(name).toBe(user.name.trim())
     expect(password).toBeTruthy()
     expect(password).not.toBe(user.password.trim())
     expect(password).not.toBe(user.password)
@@ -113,7 +112,7 @@ describe('POST /users', () => {
       expect(response.body.msg).toBe('Bad Request')
       expect(response.body.errors).toBeTruthy()
     })
-    
+
     it('handles invalid password', async () => {
       let user = {email: 'email@test.com', name: 'Tester', password: ' '}
       let response = await request(server).post('/users').send(user)
