@@ -27,9 +27,11 @@ router.get('/', async (req, res, next) => {
 
   try {
     // get ideas from db
-    const {rows} = await pg.query(`select *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score
+    const {rows} = await pg.query(`select id, content, impact, ease, confidence, user_id,
+                                   cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score,
+                                   round(extract(epoch from created_at)) as created_at
                                    from ideas where user_id = $1
-                                   order by average_score desc
+                                   order by average_score desc, created_at desc
                                    limit 10 ${offsetSQL}`,
                                    [req.user])
     res.status(200).send(rows)
@@ -51,7 +53,9 @@ router.post('/', validators, async (req, res, next) => {
     // add new idea to db
     const {rows} = await pg.query(`insert into ideas (content, impact, ease, confidence, user_id)
                                    values ($1, $2, $3, $4, $5)
-                                   returning *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score`,
+                                   returning id, content, impact, ease, confidence, user_id,
+                                   cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score,
+                                   round(extract(epoch from created_at)) as created_at`,
                                    [content, impact, ease, confidence, req.user])
     const idea = rows[0]
     res.status(201).send(idea)
@@ -77,7 +81,9 @@ router.put('/:idea', validators, async (req, res, next) => {
     // update id in db
     const {rows} = await pg.query(`update ideas set (content, impact, ease, confidence) = ($1, $2, $3, $4)
                                    where user_id = $5
-                                   returning *, cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score`,
+                                   returning id, content, impact, ease, confidence, user_id,
+                                   cast( round((impact + ease + confidence)/3.0, 1) as float) as average_score,
+                                   round(extract(epoch from created_at)) as created_at`,
                                    [content, impact, ease, confidence, req.user])
     if (rows.length < 1) next()
 
